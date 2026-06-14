@@ -1,22 +1,35 @@
 openapi: 3.1.0
 info:
-  # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: ApplyBlitz API specification
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: applications
+    description: Application tracking
+  - name: config
+    description: Configuration and profile
+  - name: jobs
+    description: Job scraping and bot runs
+  - name: priority-targets
+    description: Priority company targets
+  - name: cover-letters
+    description: Cover letter templates
+  - name: logs
+    description: Real-time log streaming
+  - name: cv
+    description: CV upload management
+
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,6 +37,422 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /applications:
+    get:
+      operationId: listApplications
+      tags: [applications]
+      summary: List applications with optional filters
+      parameters:
+        - name: category
+          in: query
+          schema:
+            type: string
+            enum: [internships, accommodation, parttime]
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [sent, pending, failed, duplicate, manual]
+        - name: language
+          in: query
+          schema:
+            type: string
+            enum: [fr, en]
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 100
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        "200":
+          description: List of applications
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Application"
+    post:
+      operationId: createApplication
+      tags: [applications]
+      summary: Create a new application record
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApplicationInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Application"
+
+  /applications/stats:
+    get:
+      operationId: getApplicationStats
+      tags: [applications]
+      summary: Get today's and all-time application stats
+      responses:
+        "200":
+          description: Stats summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApplicationStats"
+
+  /applications/manual-queue:
+    get:
+      operationId: getManualQueue
+      tags: [applications]
+      summary: Get manual queue applications sorted by priority
+      responses:
+        "200":
+          description: Manual queue list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Application"
+
+  /applications/{id}:
+    patch:
+      operationId: updateApplication
+      tags: [applications]
+      summary: Update application status or notes
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApplicationUpdate"
+      responses:
+        "200":
+          description: Updated application
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Application"
+        "404":
+          description: Not found
+    delete:
+      operationId: deleteApplication
+      tags: [applications]
+      summary: Delete an application record
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /jobs/run:
+    post:
+      operationId: runCategory
+      tags: [jobs]
+      summary: Trigger a scrape+apply run for a specific category
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RunCategoryInput"
+      responses:
+        "200":
+          description: Run initiated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RunResult"
+
+  /jobs/run-all:
+    post:
+      operationId: runAll
+      tags: [jobs]
+      summary: Trigger scrape+apply run for all 3 categories
+      responses:
+        "200":
+          description: All runs initiated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RunResult"
+
+  /jobs/test:
+    post:
+      operationId: runTestMode
+      tags: [jobs]
+      summary: Run test mode — fetch 5 jobs per category, no apply
+      responses:
+        "200":
+          description: Test run result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TestRunResult"
+
+  /jobs/status:
+    get:
+      operationId: getRunStatus
+      tags: [jobs]
+      summary: Get current run status for all categories
+      responses:
+        "200":
+          description: Run status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RunStatus"
+
+  /priority-targets:
+    get:
+      operationId: listPriorityTargets
+      tags: [priority-targets]
+      summary: List priority company targets
+      responses:
+        "200":
+          description: Priority targets
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PriorityTarget"
+
+  /priority-targets/{id}/check:
+    post:
+      operationId: checkPriorityTarget
+      tags: [priority-targets]
+      summary: Re-scrape a priority company's careers page
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Check result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PriorityTarget"
+
+  /cover-letters:
+    get:
+      operationId: getCoverLetters
+      tags: [cover-letters]
+      summary: Get FR and EN cover letter templates
+      responses:
+        "200":
+          description: Cover letter templates
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoverLetters"
+    put:
+      operationId: updateCoverLetters
+      tags: [cover-letters]
+      summary: Update cover letter templates
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CoverLettersUpdate"
+      responses:
+        "200":
+          description: Updated templates
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoverLetters"
+
+  /cover-letters/preview:
+    post:
+      operationId: previewCoverLetter
+      tags: [cover-letters]
+      summary: Preview a cover letter with variable injection
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CoverLetterPreviewInput"
+      responses:
+        "200":
+          description: Rendered cover letter text
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoverLetterPreview"
+
+  /config:
+    get:
+      operationId: getConfig
+      tags: [config]
+      summary: Get all configuration values (SMTP, schedule, etc.)
+      responses:
+        "200":
+          description: Config object
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Config"
+    put:
+      operationId: updateConfig
+      tags: [config]
+      summary: Update configuration values
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ConfigUpdate"
+      responses:
+        "200":
+          description: Updated config
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Config"
+
+  /profile:
+    get:
+      operationId: getProfile
+      tags: [config]
+      summary: Get Ahmed's profile info
+      responses:
+        "200":
+          description: Profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Profile"
+    put:
+      operationId: updateProfile
+      tags: [config]
+      summary: Update profile info
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProfileUpdate"
+      responses:
+        "200":
+          description: Updated profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Profile"
+
+  /onboarding/status:
+    get:
+      operationId: getOnboardingStatus
+      tags: [config]
+      summary: Check if onboarding is complete
+      responses:
+        "200":
+          description: Onboarding status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OnboardingStatus"
+
+  /onboarding/complete:
+    post:
+      operationId: completeOnboarding
+      tags: [config]
+      summary: Mark onboarding as complete and save initial config
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OnboardingInput"
+      responses:
+        "200":
+          description: Onboarding complete
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OnboardingStatus"
+
+  /cv:
+    get:
+      operationId: getCvInfo
+      tags: [cv]
+      summary: Get info about the uploaded CV
+      responses:
+        "200":
+          description: CV info
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CvInfo"
+
+  /schedule:
+    get:
+      operationId: getSchedule
+      tags: [config]
+      summary: Get scheduler config and next run times
+      responses:
+        "200":
+          description: Schedule info
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScheduleInfo"
+    put:
+      operationId: updateSchedule
+      tags: [config]
+      summary: Update schedule time
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ScheduleUpdate"
+      responses:
+        "200":
+          description: Updated schedule
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScheduleInfo"
+
+  /digest/send:
+    post:
+      operationId: sendDigest
+      tags: [jobs]
+      summary: Send daily email digest now
+      responses:
+        "200":
+          description: Digest sent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DigestResult"
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +463,411 @@ components:
       required:
         - status
 
+    Application:
+      type: object
+      required: [id, category, company, role, source, url, urlHash, status, language, appliedAt, isPriority]
+      properties:
+        id:
+          type: integer
+        category:
+          type: string
+          enum: [internships, accommodation, parttime]
+        company:
+          type: string
+        role:
+          type: string
+        source:
+          type: string
+        url:
+          type: string
+        urlHash:
+          type: string
+        status:
+          type: string
+          enum: [sent, pending, failed, duplicate, manual]
+        language:
+          type: string
+          enum: [fr, en]
+        appliedAt:
+          type: string
+        notes:
+          type: ["string", "null"]
+        isPriority:
+          type: integer
+        badge:
+          type: ["string", "null"]
+
+    ApplicationInput:
+      type: object
+      required: [category, company, role, source, url, status, language]
+      properties:
+        category:
+          type: string
+          enum: [internships, accommodation, parttime]
+        company:
+          type: string
+        role:
+          type: string
+        source:
+          type: string
+        url:
+          type: string
+        status:
+          type: string
+          enum: [sent, pending, failed, duplicate, manual]
+        language:
+          type: string
+          enum: [fr, en]
+        notes:
+          type: string
+        isPriority:
+          type: integer
+        badge:
+          type: string
+
+    ApplicationUpdate:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [sent, pending, failed, duplicate, manual]
+        notes:
+          type: string
+
+    ApplicationStats:
+      type: object
+      required: [todayTotal, todayTarget, todayAutoApplied, todayManualQueue, todayFailed, allTimeTotal, allTimeAutoApplied, successRate, byCategory]
+      properties:
+        todayTotal:
+          type: integer
+        todayTarget:
+          type: integer
+        todayAutoApplied:
+          type: integer
+        todayManualQueue:
+          type: integer
+        todayFailed:
+          type: integer
+        allTimeTotal:
+          type: integer
+        allTimeAutoApplied:
+          type: integer
+        successRate:
+          type: number
+        byCategory:
+          type: object
+          properties:
+            internships:
+              $ref: "#/components/schemas/CategoryStats"
+            accommodation:
+              $ref: "#/components/schemas/CategoryStats"
+            parttime:
+              $ref: "#/components/schemas/CategoryStats"
+
+    CategoryStats:
+      type: object
+      required: [today, target, sent, manual, failed]
+      properties:
+        today:
+          type: integer
+        target:
+          type: integer
+        sent:
+          type: integer
+        manual:
+          type: integer
+        failed:
+          type: integer
+
+    PriorityTarget:
+      type: object
+      required: [id, company, careersUrl, status]
+      properties:
+        id:
+          type: integer
+        company:
+          type: string
+        careersUrl:
+          type: string
+        lastChecked:
+          type: ["string", "null"]
+        status:
+          type: string
+        notes:
+          type: ["string", "null"]
+
+    RunCategoryInput:
+      type: object
+      required: [category]
+      properties:
+        category:
+          type: string
+          enum: [internships, accommodation, parttime]
+        testMode:
+          type: boolean
+
+    RunResult:
+      type: object
+      required: [started, message]
+      properties:
+        started:
+          type: boolean
+        message:
+          type: string
+        runId:
+          type: ["string", "null"]
+
+    TestRunResult:
+      type: object
+      required: [jobs, message]
+      properties:
+        jobs:
+          type: array
+          items:
+            $ref: "#/components/schemas/PreviewJob"
+        message:
+          type: string
+
+    PreviewJob:
+      type: object
+      required: [company, role, source, url, category, language]
+      properties:
+        company:
+          type: string
+        role:
+          type: string
+        source:
+          type: string
+        url:
+          type: string
+        category:
+          type: string
+        language:
+          type: string
+        wouldApply:
+          type: boolean
+
+    RunStatus:
+      type: object
+      required: [isRunning, lastRun, nextRun]
+      properties:
+        isRunning:
+          type: boolean
+        activeCategories:
+          type: array
+          items:
+            type: string
+        lastRun:
+          type: ["string", "null"]
+        nextRun:
+          type: ["string", "null"]
+        currentProgress:
+          type: object
+          properties:
+            internships:
+              type: integer
+            accommodation:
+              type: integer
+            parttime:
+              type: integer
+
+    CoverLetters:
+      type: object
+      required: [fr, en]
+      properties:
+        fr:
+          type: string
+        en:
+          type: string
+
+    CoverLettersUpdate:
+      type: object
+      properties:
+        fr:
+          type: string
+        en:
+          type: string
+
+    CoverLetterPreviewInput:
+      type: object
+      required: [language, role, company]
+      properties:
+        language:
+          type: string
+          enum: [fr, en]
+        role:
+          type: string
+        company:
+          type: string
+
+    CoverLetterPreview:
+      type: object
+      required: [rendered, language]
+      properties:
+        rendered:
+          type: string
+        language:
+          type: string
+
+    Config:
+      type: object
+      properties:
+        smtpHost:
+          type: string
+        smtpUser:
+          type: string
+        smtpConfigured:
+          type: boolean
+        adzunaApiKey:
+          type: string
+        adzunaConfigured:
+          type: boolean
+        scheduleTime:
+          type: string
+        cvPath:
+          type: ["string", "null"]
+        onboardingComplete:
+          type: boolean
+
+    ConfigUpdate:
+      type: object
+      properties:
+        smtpHost:
+          type: string
+        smtpUser:
+          type: string
+        smtpPass:
+          type: string
+        adzunaApiKey:
+          type: string
+        scheduleTime:
+          type: string
+
+    Profile:
+      type: object
+      properties:
+        name:
+          type: string
+        email:
+          type: string
+        phone:
+          type: ["string", "null"]
+        location:
+          type: string
+        university:
+          type: string
+        specialization:
+          type: string
+        priorExperience:
+          type: string
+        skills:
+          type: string
+        portfolio:
+          type: string
+        github:
+          type: string
+        languages:
+          type: string
+        availability:
+          type: string
+
+    ProfileUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        email:
+          type: string
+        phone:
+          type: string
+        location:
+          type: string
+        university:
+          type: string
+        specialization:
+          type: string
+        priorExperience:
+          type: string
+        skills:
+          type: string
+        portfolio:
+          type: string
+        github:
+          type: string
+        languages:
+          type: string
+        availability:
+          type: string
+
+    OnboardingStatus:
+      type: object
+      required: [complete]
+      properties:
+        complete:
+          type: boolean
+        missingFields:
+          type: array
+          items:
+            type: string
+
+    OnboardingInput:
+      type: object
+      required: [profile, smtpHost, smtpUser, smtpPass]
+      properties:
+        profile:
+          $ref: "#/components/schemas/ProfileUpdate"
+        smtpHost:
+          type: string
+        smtpUser:
+          type: string
+        smtpPass:
+          type: string
+        adzunaApiKey:
+          type: string
+        coverLetterFr:
+          type: string
+        coverLetterEn:
+          type: string
+
+    CvInfo:
+      type: object
+      required: [uploaded]
+      properties:
+        uploaded:
+          type: boolean
+        filename:
+          type: ["string", "null"]
+        uploadedAt:
+          type: ["string", "null"]
+        size:
+          type: ["integer", "null"]
+
+    ScheduleInfo:
+      type: object
+      required: [enabled, time, timezone, nextRun]
+      properties:
+        enabled:
+          type: boolean
+        time:
+          type: string
+        timezone:
+          type: string
+        nextRun:
+          type: ["string", "null"]
+
+    ScheduleUpdate:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+        time:
+          type: string
+
+    DigestResult:
+      type: object
+      required: [sent, message]
+      properties:
+        sent:
+          type: boolean
+        message:
+          type: string
