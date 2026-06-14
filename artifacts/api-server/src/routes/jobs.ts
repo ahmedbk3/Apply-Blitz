@@ -2,6 +2,7 @@ import { Router } from "express";
 import { runCategory, runAll, runTestPreview } from "../scrapers/index.js";
 import { getSchedulerStatus, executeRun } from "../scheduler/cron.js";
 import { detectLanguage } from "../apply/coverLetter.js";
+import { testSmtpConnection } from "../apply/emailApply.js";
 import { log } from "../logs/sseLogger.js";
 
 const router = Router();
@@ -36,7 +37,7 @@ router.post("/jobs/run-all", async (_req, res) => {
 });
 
 router.post("/jobs/test", async (_req, res) => {
-  log.info("[Test] Running test mode — 5 jobs per category, no apply");
+  log.info("[Test] Running test mode — preview only, no applications sent");
   const jobs = await runTestPreview();
   res.json({
     jobs: jobs.map(j => ({
@@ -46,7 +47,7 @@ router.post("/jobs/test", async (_req, res) => {
       url: j.url,
       category: j.category,
       language: j.language ?? detectLanguage(j.company, j.source),
-      wouldApply: true,
+      wouldApply: !!j.applyEmail,
     })),
     message: `Found ${jobs.length} jobs across all categories (test mode — no applications sent)`,
   });
@@ -61,6 +62,11 @@ router.get("/jobs/status", (_req, res) => {
     nextRun: s.nextRun,
     currentProgress: s.currentProgress,
   });
+});
+
+router.post("/smtp/test", async (_req, res) => {
+  const result = await testSmtpConnection();
+  res.json(result);
 });
 
 router.post("/digest/send", async (_req, res) => {

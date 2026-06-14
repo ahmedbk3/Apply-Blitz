@@ -1,0 +1,2 @@
+- [Playwright + Chromium setup](playwright-chromium.md) — Playwright uses system Chromium via `which chromium`; install via `installSystemDependencies({ packages: ["chromium"] })`.
+- [API server tsconfig DOM lib](api-server-tsconfig.md) — Added `"lib": ["es2022", "dom"]` to api-server tsconfig so `page.evaluate()` callbacks typecheck; `cheerio` added to build.mjs externals.

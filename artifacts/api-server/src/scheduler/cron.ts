@@ -1,9 +1,9 @@
-import cron from "node-cron";
+import cron, { type ScheduledTask } from "node-cron";
 import { getConfig } from "../db/database.js";
 import { runAll } from "../scrapers/index.js";
 import { log } from "../logs/sseLogger.js";
 
-let currentTask: cron.ScheduledTask | null = null;
+let currentTask: ScheduledTask | null = null;
 export let isRunning = false;
 export let lastRun: string | null = null;
 export let nextRun: string | null = null;
